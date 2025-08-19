@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentence-analyzer
+  namespace: sentence-analyzer
+  labels:
+    app: sentence-analyzer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sentence-analyzer
+  template:
+    metadata:
+      labels:
+        app: sentence-analyzer
+    spec:
+      containers:
+      - name: sentence-analyzer
+        image: ${DOCKER_REGISTRY}/sentence-analyzer:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+          requests:
+            cpu: "0.2"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /analyze
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /analyze
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5

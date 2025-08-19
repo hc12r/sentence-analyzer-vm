@@ -1,0 +1,134 @@
+---
+- name: Install K3s on EC2 instance
+  hosts: k3s_server
+  become: true
+  vars:
+    k3s_version: v1.25.0+k3s1
+    app_name: sentence-analyzer
+    app_namespace: sentence-analyzer
+    app_port: 8080
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - apt-transport-https
+          - ca-certificates
+          - software-properties-common
+        state: present
+
+    - name: Install K3s
+      shell: |
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION={{ k3s_version }} sh -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for K3s to be ready
+      wait_for:
+        path: /etc/rancher/k3s/k3s.yaml
+        delay: 5
+        timeout: 300
+
+    - name: Create directory for kube config
+      file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy kube config for user
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /home/ubuntu/.kube/config
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+
+    - name: Replace localhost with actual IP in kubeconfig
+      replace:
+        path: /home/ubuntu/.kube/config
+        regexp: 'https://127.0.0.1:6443'
+        replace: 'https://{{ ansible_host }}:6443'
+
+    - name: Set KUBECONFIG environment variable
+      lineinfile:
+        path: /home/ubuntu/.bashrc
+        line: 'export KUBECONFIG=/home/ubuntu/.kube/config'
+        state: present
+
+    - name: Create namespace for application
+      kubernetes.core.k8s:
+        name: "{{ app_namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+    - name: Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        mv kubectl /usr/local/bin/
+      args:
+        creates: /usr/local/bin/kubectl
+
+#    - name: Install Docker
+#      apt:
+#        name:
+#          - docker.io
+#          - docker-compose
+#        state: present
+#        update_cache: yes
+#
+#    - name: Add ubuntu user to docker group
+#      user:
+#        name: ubuntu
+#        groups: docker
+#        append: yes
+
+    - name: Create directory for application manifests
+      file:
+        path: /home/ubuntu/k8s
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Copy deployment manifest
+      template:
+        src: deployment.yml.j2
+        dest: /home/ubuntu/k8s/deployment.yml
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    - name: Copy service manifest
+      template:
+        src: service.yml.j2
+        dest: /home/ubuntu/k8s/service.yml
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+        
+    - name: Apply deployment manifest
+      kubernetes.core.k8s:
+        state: present
+        src: /home/ubuntu/k8s/deployment.yml
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+        
+    - name: Apply service manifest
+      kubernetes.core.k8s:
+        state: present
+        src: /home/ubuntu/k8s/service.yml
+      environment:
+        KUBECONFIG: /etc/rancher/k3s/k3s.yaml

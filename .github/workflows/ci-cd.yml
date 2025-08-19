@@ -1,0 +1,187 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  DOCKER_REGISTRY: ghcr.io/${{ github.repository_owner }}
+  APP_NAME: sentence-analyzer
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Run tests
+        run: go test -v ./...
+
+  build:
+    name: Build and Push Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.APP_NAME }}:latest,${{ env.DOCKER_REGISTRY }}/${{ env.APP_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  terraform:
+    name: Provision Infrastructure
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      instance_public_ip: ${{ steps.terraform-output.outputs.instance_public_ip }}
+      instance_public_dns: ${{ steps.terraform-output.outputs.instance_public_dns }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+          terraform_wrapper: false  # Important: prevents JSON output issues
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        run: |
+          cd terraform
+          terraform init
+
+      - name: Terraform Plan
+        run: |
+          cd terraform
+          terraform plan -var="key_name=${{ secrets.AWS_KEY_NAME }}" -var="private_key_path=${{ secrets.AWS_PRIVATE_KEY_PATH }}"
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd terraform
+          terraform apply -auto-approve -var="key_name=${{ secrets.AWS_KEY_NAME }}" -var="private_key_path=${{ secrets.AWS_PRIVATE_KEY_PATH }}"
+
+      - name: Get Terraform Outputs
+        id: terraform-output
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd terraform
+          # Get outputs and set as job outputs
+          INSTANCE_IP=$(terraform output -raw instance_public_ip)
+          INSTANCE_DNS=$(terraform output -raw instance_public_dns)
+          
+          echo "instance_public_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "instance_public_dns=$INSTANCE_DNS" >> $GITHUB_OUTPUT
+          
+          # Also create JSON file as backup
+          terraform output -json > ../terraform-output.json
+          echo "Terraform outputs:"
+          cat ../terraform-output.json
+
+      - name: Upload Terraform Output (Backup)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-output
+          path: ./terraform-output.json
+          retention-days: 1
+
+  ansible:
+    name: Configure Server and Deploy Application
+    needs: terraform
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+
+      - name: Install Ansible Kubernetes Collection
+        run: ansible-galaxy collection install kubernetes.core
+
+      - name: Set up SSH key
+        env:
+          EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "Using IP: $EC2_IP"
+          ssh-keyscan -t rsa $EC2_IP >> ~/.ssh/known_hosts
+
+      - name: Install Python dependencies on remote host
+        env:
+          EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
+        run: |
+          echo "[k3s_server]" > ansible/inventory
+          echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> ansible/inventory
+          cd ansible
+          # Update package cache and install pip3
+          ansible k3s_server -i inventory -m shell -a "apt update && apt install -y python3-pip" --become
+          # Install required Python packages
+          ansible k3s_server -i inventory -m pip -a "name=kubernetes executable=pip3" --become
+          ansible k3s_server -i inventory -m pip -a "name=PyYAML executable=pip3" --become
+
+      - name: Run Ansible Playbook
+        env:
+          DOCKER_REGISTRY: ${{ env.DOCKER_REGISTRY }}
+          EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
+        run: |
+          echo "[k3s_server]" > ansible/inventory
+          echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> ansible/inventory
+          cd ansible
+          ansible-playbook -i inventory k3s.yml -e "docker_registry=$DOCKER_REGISTRY"
+
+      - name: Deploy Application
+        env:
+          EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
+        run: |
+          echo "Application deployed successfully!"
+          echo "You can access the application at: https://$EC2_IP:30080/analyze"
