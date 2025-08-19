@@ -1,0 +1,87 @@
+openapi: 3.0.3
+info:
+  title: Sentence Analysis API
+  description: A simple API that analyzes sentences for word, vowel, and consonant counts
+  version: 1.0.0
+  contact:
+    name: Vodacom Assessment
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+security:
+  - basicAuth: []
+paths:
+  /analyze:
+    post:
+      summary: Analyze a sentence
+      description: Counts the number of words, vowels, and consonants in the provided sentence
+      operationId: analyzeSentence
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SentenceAnalysisRequest'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SentenceAnalysisResponse'
+        '400':
+          description: Invalid request body
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Invalid request body
+        '401':
+          description: Unauthorized
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Unauthorized
+        '405':
+          description: Method not allowed
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Method not allowed
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Internal server error
+components:
+  schemas:
+    SentenceAnalysisRequest:
+      type: object
+      required:
+        - sentence
+      properties:
+        sentence:
+          type: string
+          description: The sentence to analyze
+          example: "The quick brown fox jumps over the lazy dog"
+    SentenceAnalysisResponse:
+      type: object
+      properties:
+        word_count:
+          type: integer
+          description: The number of words in the sentence
+          example: 9
+        vowel_count:
+          type: integer
+          description: The number of vowels in the sentence
+          example: 11
+        consonant_count:
+          type: integer
+          description: The number of consonants in the sentence
+          example: 24

@@ -11,10 +11,10 @@ COPY go.mod ./
 RUN go mod download
 
 # Copy source code
-COPY *.go ./
+COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o sentence-analyzer-vm .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o sentence-analyzer-vm ./cmd/api
 
 # Final stage
 FROM alpine:latest

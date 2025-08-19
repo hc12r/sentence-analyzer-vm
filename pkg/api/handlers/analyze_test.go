@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -6,67 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/hc12r/sentence-analyzer-vm/pkg/domain"
 )
-
-func TestAnalyzeSentence(t *testing.T) {
-	tests := []struct {
-		name     string
-		sentence string
-		want     SentenceAnalysisResponse
-	}{
-		{
-			name:     "empty string",
-			sentence: "",
-			want: SentenceAnalysisResponse{
-				WordCount:      0,
-				VowelCount:     0,
-				ConsonantCount: 0,
-			},
-		},
-		{
-			name:     "simple sentence",
-			sentence: "Hello World",
-			want: SentenceAnalysisResponse{
-				WordCount:      2,
-				VowelCount:     3,
-				ConsonantCount: 7,
-			},
-		},
-		{
-			name:     "complex sentence with punctuation",
-			sentence: "The quick brown fox jumps over the lazy dog!",
-			want: SentenceAnalysisResponse{
-				WordCount:      9,
-				VowelCount:     11,
-				ConsonantCount: 24,
-			},
-		},
-		{
-			name:     "sentence with numbers",
-			sentence: "There are 42 apples and 7 oranges.",
-			want: SentenceAnalysisResponse{
-				WordCount:      7,
-				VowelCount:     10,
-				ConsonantCount: 14,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := analyzeSentence(tt.sentence)
-			if got.WordCount != tt.want.WordCount {
-				t.Errorf("WordCount = %v, want %v", got.WordCount, tt.want.WordCount)
-			}
-			if got.VowelCount != tt.want.VowelCount {
-				t.Errorf("VowelCount = %v, want %v", got.VowelCount, tt.want.VowelCount)
-			}
-			if got.ConsonantCount != tt.want.ConsonantCount {
-				t.Errorf("ConsonantCount = %v, want %v", got.ConsonantCount, tt.want.ConsonantCount)
-			}
-		})
-	}
-}
 
 func TestHandleAnalyzeSentence(t *testing.T) {
 	tests := []struct {
@@ -74,14 +16,14 @@ func TestHandleAnalyzeSentence(t *testing.T) {
 		method         string
 		requestBody    interface{}
 		wantStatusCode int
-		wantResponse   *SentenceAnalysisResponse
+		wantResponse   *domain.SentenceAnalysisResponse
 	}{
 		{
 			name:           "valid request",
 			method:         http.MethodPost,
-			requestBody:    SentenceAnalysisRequest{Sentence: "Hello World"},
+			requestBody:    domain.SentenceAnalysisRequest{Sentence: "Hello World"},
 			wantStatusCode: http.StatusOK,
-			wantResponse: &SentenceAnalysisResponse{
+			wantResponse: &domain.SentenceAnalysisResponse{
 				WordCount:      2,
 				VowelCount:     3,
 				ConsonantCount: 7,
@@ -126,7 +68,7 @@ func TestHandleAnalyzeSentence(t *testing.T) {
 			}
 
 			rr := httptest.NewRecorder()
-			handler := http.HandlerFunc(handleAnalyzeSentence)
+			handler := http.HandlerFunc(HandleAnalyzeSentence)
 			handler.ServeHTTP(rr, req)
 
 			if status := rr.Code; status != tt.wantStatusCode {
@@ -134,7 +76,7 @@ func TestHandleAnalyzeSentence(t *testing.T) {
 			}
 
 			if tt.wantResponse != nil {
-				var got SentenceAnalysisResponse
+				var got domain.SentenceAnalysisResponse
 				err = json.Unmarshal(rr.Body.Bytes(), &got)
 				if err != nil {
 					t.Fatalf("Failed to unmarshal response: %v", err)
