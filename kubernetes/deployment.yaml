@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sentence-analyzer
-  namespace: sentence-analyzer
+  name: sentence-analyzer-vm
+  namespace: sentence-analyzer-vm
   labels:
-    app: sentence-analyzer
+    app: sentence-analyzer-vm
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: sentence-analyzer
+      app: sentence-analyzer-vm
   template:
     metadata:
       labels:
-        app: sentence-analyzer
+        app: sentence-analyzer-vm
     spec:
       containers:
-      - name: sentence-analyzer
-        image: ${DOCKER_REGISTRY}/sentence-analyzer:latest
+      - name: sentence-analyzer-vm
+        image: ${DOCKER_REGISTRY}/sentence-analyzer-vm:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

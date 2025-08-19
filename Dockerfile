@@ -14,7 +14,7 @@ RUN go mod download
 COPY *.go ./
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o sentence-analyzer .
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o sentence-analyzer-vm .
 
 # Final stage
 FROM alpine:latest
@@ -26,10 +26,10 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the binary from builder
-COPY --from=builder /app/sentence-analyzer .
+COPY --from=builder /app/sentence-analyzer-vm .
 
 # Expose the application port
 EXPOSE 8080
 
 # Command to run the application
-CMD ["./sentence-analyzer"]
+CMD ["./sentence-analyzer-vm"]

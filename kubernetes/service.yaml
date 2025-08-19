@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: sentence-analyzer
-  namespace: sentence-analyzer
+  name: sentence-analyzer-vm
+  namespace: sentence-analyzer-vm
   labels:
-    app: sentence-analyzer
+    app: sentence-analyzer-vm
 spec:
   type: NodePort
   ports:
@@ -14,4 +14,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: sentence-analyzer
+    app: sentence-analyzer-vm
