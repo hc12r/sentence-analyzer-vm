@@ -30,13 +30,13 @@ spec:
             memory: "256Mi"
         livenessProbe:
           httpGet:
-            path: /analyze
+            path: /health
             port: 8080
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
-            path: /analyze
+            path: /health
             port: 8080
           initialDelaySeconds: 5
           periodSeconds: 5

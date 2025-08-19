@@ -136,9 +136,19 @@ func handleAnalyzeSentence(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleHealth handles the health check endpoint
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+}
+
 func main() {
 	// Register handlers with basic authentication
 	http.HandleFunc("/analyze", basicAuth(handleAnalyzeSentence))
+	
+	// Register health endpoint without authentication
+	http.HandleFunc("/health", handleHealth)
 	
 	// Start server
 	port := ":8080"
