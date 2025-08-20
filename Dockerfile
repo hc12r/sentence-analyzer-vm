@@ -28,6 +28,12 @@ WORKDIR /root/
 # Copy the binary from builder
 COPY --from=builder /app/sentence-analyzer-vm .
 
+# Create directory for OpenAPI specification
+RUN mkdir -p pkg/docs/openapi
+
+# Copy OpenAPI specification file
+COPY --from=builder /app/pkg/docs/openapi/openapi.yaml pkg/docs/openapi/
+
 # Expose the application port
 EXPOSE 8080
 
