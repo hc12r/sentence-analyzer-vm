@@ -14,6 +14,7 @@ permissions:
 env:
   DOCKER_REGISTRY: ghcr.io/${{ github.repository_owner }}
   APP_NAME: sentence-analyzer-vm
+  KONG_VERSION: "2.8"
 
 jobs:
   test:
@@ -196,4 +197,83 @@ jobs:
           EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
         run: |
           echo "Application deployed successfully!"
-          echo "You can access the application at: https://$EC2_IP:30080/analyze"
+          echo "You can access the application at: http://$EC2_IP:30080/analyze"
+
+  deploy-kong:
+    name: Deploy Kong API Gateway
+    needs: ansible
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+
+      - name: Install Ansible Kubernetes Collection
+        run: ansible-galaxy collection install kubernetes.core
+
+      - name: Set up SSH key
+        env:
+          EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "Using IP: $EC2_IP"
+          ssh-keyscan -t rsa $EC2_IP >> ~/.ssh/known_hosts
+
+      - name: Deploy Kong API Gateway
+        env:
+          EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
+          KONG_VERSION: ${{ env.KONG_VERSION }}
+          OIDC_CLIENT_ID: ${{ secrets.OIDC_CLIENT_ID }}
+          OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
+          OIDC_DISCOVERY_URL: ${{ secrets.OIDC_DISCOVERY_URL }}
+          # OIDC_INTROSPECTION_URL is optional for Auth0 and other providers that use JWT validation
+          OIDC_INTROSPECTION_URL: ${{ secrets.OIDC_INTROSPECTION_URL || '' }}
+        run: |
+          echo "[k3s_server]" > ansible/inventory
+          echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> ansible/inventory
+          
+          # Copy Kong manifests to the server
+          scp -r api-gateway ubuntu@$EC2_IP:/home/ubuntu/
+          
+          # Apply Kong namespace
+          ssh ubuntu@$EC2_IP "kubectl apply -f /home/ubuntu/api-gateway/kubernetes/namespace.yaml"
+          
+          # Apply Kong deployment and service
+          ssh ubuntu@$EC2_IP "kubectl apply -f /home/ubuntu/api-gateway/kubernetes/kong-deployment.yaml"
+          ssh ubuntu@$EC2_IP "kubectl apply -f /home/ubuntu/api-gateway/kubernetes/kong-service.yaml"
+          ssh ubuntu@$EC2_IP "kubectl apply -f /home/ubuntu/api-gateway/kubernetes/kong-ingress.yaml"
+          
+          # Install Kong OIDC plugin
+          ssh ubuntu@$EC2_IP "chmod +x /home/ubuntu/api-gateway/scripts/install-kong-oidc.sh"
+          ssh ubuntu@$EC2_IP "/home/ubuntu/api-gateway/scripts/install-kong-oidc.sh"
+          
+          # Configure OpenID Connect
+          ssh ubuntu@$EC2_IP "export OIDC_CLIENT_ID='$OIDC_CLIENT_ID' && \
+                             export OIDC_CLIENT_SECRET='$OIDC_CLIENT_SECRET' && \
+                             export OIDC_DISCOVERY_URL='$OIDC_DISCOVERY_URL' && \
+                             export OIDC_INTROSPECTION_URL='$OIDC_INTROSPECTION_URL' && \
+                             chmod +x /home/ubuntu/api-gateway/scripts/setup-oidc.sh && \
+                             /home/ubuntu/api-gateway/scripts/setup-oidc.sh"
+          
+          # Wait for Kong to be ready
+          ssh ubuntu@$EC2_IP "kubectl rollout status deployment/kong -n kong --timeout=120s"
+          
+      - name: Verify Kong Deployment
+        env:
+          EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
+        run: |
+          echo "Kong API Gateway deployed successfully!"
+          echo "You can access Kong Admin API at: http://$EC2_IP:8001"
+          echo "Your API is now protected by Kong with OpenID Connect at: http://$EC2_IP:30080/analyze"
