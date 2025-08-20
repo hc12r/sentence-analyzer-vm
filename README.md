@@ -85,7 +85,7 @@ This structure improves maintainability, testability, and follows industry stand
 
 #### Kong API Gateway Issues
 
-We attempted to implement authentication using Kong API Gateway with OpenID Connect, but encountered several challenges:
+Attempted to implement authentication using Kong API Gateway with OpenID Connect, but encountered several challenges:
 
 1. **Deployment Issues**: 
    - Empty EC2_IP environment variable in the CI/CD pipeline
@@ -100,11 +100,11 @@ We attempted to implement authentication using Kong API Gateway with OpenID Conn
    - Kong pods repeatedly crashed due to configuration issues
    - Error logs showed problems with the OIDC plugin configuration
 
-Despite multiple attempts to fix these issues (documented in KONG_OIDC_PLUGIN_FIX.md, KONG_DEPLOYMENT_FIX.md, etc.), we couldn't achieve a stable Kong deployment with OpenID Connect.
+Despite multiple attempts to fix these issues (documented in KONG_OIDC_PLUGIN_FIX.md, KONG_DEPLOYMENT_FIX.md, etc.), couldn't achieve a stable Kong deployment with OpenID Connect.
 
 #### JWT Authentication Solution
 
-Due to the challenges with Kong, we implemented a direct JWT authentication solution in the application:
+Due to the challenges with Kong, implemented a direct JWT authentication solution in the application:
 
 - **Token-based Authentication**: Uses industry-standard JWT tokens
 - **Environment Variable Configuration**: Credentials and secret key configurable via environment variables
@@ -136,11 +136,18 @@ Test coverage was improved to exceed 80% across the codebase:
 
 ## Using the Application
 
+### API Access
+
+The application is deployed and accessible at the following URLs:
+
+- **API URL**: http://16.170.162.142:30080
+- **Swagger UI**: http://16.170.162.142:30080/swagger
+
 ### Authentication
 
 1. **Obtaining a Token**:
    ```bash
-   curl -X POST http://api-url/login \
+   curl -X POST http://16.170.162.142:30080/login \
      -H "Content-Type: application/json" \
      -d '{"username":"admin","password":"password"}'
    ```
@@ -154,7 +161,7 @@ Test coverage was improved to exceed 80% across the codebase:
 
 2. **Using the Token**:
    ```bash
-   curl -X POST http://api-url/analyze \
+   curl -X POST http://16.170.162.142:30080/analyze \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer YOUR_TOKEN" \
      -d '{"sentence":"Hello World"}'
