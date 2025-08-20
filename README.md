@@ -140,7 +140,7 @@ Test coverage was improved to exceed 80% across the codebase:
 
 1. **Obtaining a Token**:
    ```bash
-   curl -X POST http://your-api-url/login \
+   curl -X POST http://api-url/login \
      -H "Content-Type: application/json" \
      -d '{"username":"admin","password":"password"}'
    ```
@@ -154,7 +154,7 @@ Test coverage was improved to exceed 80% across the codebase:
 
 2. **Using the Token**:
    ```bash
-   curl -X POST http://your-api-url/analyze \
+   curl -X POST http://api-url/analyze \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer YOUR_TOKEN" \
      -d '{"sentence":"Hello World"}'
@@ -178,6 +178,34 @@ The following environment variables can be set:
 - `LOGIN_PASSWORD`: Password for authentication
 - `PORT`: Port for the application to listen on
 
-## Conclusion
+## Implementation Proof
 
-The Sentence Analyzer Microservice has been successfully implemented with a modular Go structure, comprehensive test coverage, and a robust CI/CD pipeline. While we encountered challenges with the Kong API Gateway implementation, we provided a secure alternative using JWT authentication directly in the application.
+### SonarQube Integration
+
+The project has been successfully integrated with SonarQube for code quality analysis:
+
+![SonarQube Integration Proof](./screenshots/SonarQube-Proof.png)
+
+### Swagger UI Documentation
+
+The API is fully documented with Swagger UI, including the JWT authentication:
+
+![Swagger UI Documentation](./screenshots/Swagger-UI-Proof.png)
+
+### Kubernetes Deployment
+
+The application is successfully deployed on K3s Kubernetes:
+
+![K3s Running Proof](./screenshots/k3s-running-Proof.png)
+
+### Container Execution
+
+The application container is running properly:
+
+![Container Running Proof](./screenshots/container-running-Proof.png)
+
+### API Functionality
+
+The API is working correctly with curl requests:
+
+![Working Curl Request](./screenshots/working-curl.png)
