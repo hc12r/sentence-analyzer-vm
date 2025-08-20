@@ -10,13 +10,13 @@ import (
 	"github.com/hc12r/sentence-analyzer-vm/pkg/docs"
 )
 
-// SetupAndRun configures and starts the HTTP server
-func SetupAndRun() error {
-	// Load configuration
-	cfg := config.LoadConfig()
+// SetupRoutes configures all the routes for the HTTP server
+func SetupRoutes() {
+	// Register login endpoint without authentication
+	http.HandleFunc("/login", handlers.HandleLogin)
 
-	// Register handlers without authentication (Kong handles auth)
-	http.HandleFunc("/analyze", middleware.NoAuth(handlers.HandleAnalyzeSentence))
+	// Register handlers with JWT authentication
+	http.HandleFunc("/analyze", middleware.JWTAuth(handlers.HandleAnalyzeSentence))
 
 	// Register health endpoint without authentication
 	http.HandleFunc("/health", handlers.HandleHealth)
@@ -24,6 +24,15 @@ func SetupAndRun() error {
 	// Register Swagger documentation endpoints
 	http.HandleFunc("/swagger", docs.HandleSwaggerUI)
 	http.HandleFunc("/swagger/openapi.yaml", docs.HandleSwaggerYAML)
+}
+
+// SetupAndRun configures and starts the HTTP server
+func SetupAndRun() error {
+	// Load configuration
+	cfg := config.LoadConfig()
+
+	// Setup routes
+	SetupRoutes()
 
 	// Start server
 	port := fmt.Sprintf(":%d", cfg.Port)
