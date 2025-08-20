@@ -9,7 +9,7 @@ spec:
   - name: proxy
     port: 80
     targetPort: 8000
-    nodePort: 30080
+    nodePort: 30081
   - name: proxy-ssl
     port: 443
     targetPort: 8443
