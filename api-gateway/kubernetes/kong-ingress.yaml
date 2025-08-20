@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sentence-analyzer-ingress
+  namespace: default
+  annotations:
+    konghq.com/strip-path: "false"
+    konghq.com/plugins: oidc
+spec:
+  ingressClassName: kong
+  rules:
+  - http:
+      paths:
+      - path: /analyze
+        pathType: Prefix
+        backend:
+          service:
+            name: sentence-analyzer-service
+            port:
+              number: 8080

@@ -15,8 +15,8 @@ func SetupAndRun() error {
 	// Load configuration
 	cfg := config.LoadConfig()
 
-	// Register handlers with basic authentication
-	http.HandleFunc("/analyze", middleware.BasicAuth(handlers.HandleAnalyzeSentence))
+	// Register handlers without authentication (Kong handles auth)
+	http.HandleFunc("/analyze", middleware.NoAuth(handlers.HandleAnalyzeSentence))
 
 	// Register health endpoint without authentication
 	http.HandleFunc("/health", handlers.HandleHealth)
