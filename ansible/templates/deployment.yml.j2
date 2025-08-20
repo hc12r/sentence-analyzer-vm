@@ -21,6 +21,13 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: {{ app_port }}
+        env:
+        - name: JWT_SECRET_KEY
+          value: "{{ jwt_secret_key }}"
+        - name: LOGIN_USERNAME
+          value: "{{ login_username }}"
+        - name: LOGIN_PASSWORD
+          value: "{{ login_password }}"
         resources:
           limits:
             cpu: "0.5"
