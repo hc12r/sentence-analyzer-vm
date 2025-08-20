@@ -25,7 +25,7 @@
 
     - name: Install K3s
       shell: |
-        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION={{ k3s_version }} sh -
+        curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION={{ k3s_version }} sh -s - --write-kubeconfig-mode 644
       args:
         creates: /usr/local/bin/k3s
 
@@ -34,6 +34,12 @@
         path: /etc/rancher/k3s/k3s.yaml
         delay: 5
         timeout: 300
+        
+    - name: Ensure k3s.yaml has proper permissions
+      file:
+        path: /etc/rancher/k3s/k3s.yaml
+        mode: '0644'
+        state: file
 
     - name: Create directory for kube config
       file:
@@ -80,20 +86,6 @@
         mv kubectl /usr/local/bin/
       args:
         creates: /usr/local/bin/kubectl
-
-#    - name: Install Docker
-#      apt:
-#        name:
-#          - docker.io
-#          - docker-compose
-#        state: present
-#        update_cache: yes
-#
-#    - name: Add ubuntu user to docker group
-#      user:
-#        name: ubuntu
-#        groups: docker
-#        append: yes
 
     - name: Create directory for application manifests
       file:
