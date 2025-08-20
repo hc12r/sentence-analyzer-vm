@@ -7,6 +7,10 @@
     app_name: sentence-analyzer-vm
     app_namespace: sentence-analyzer-vm
     app_port: 8080
+    # JWT authentication variables (passed from CI/CD pipeline)
+    jwt_secret_key: "{{ jwt_secret_key | default('default-secret-key-for-development-only') }}"
+    login_username: "{{ login_username | default('admin') }}"
+    login_password: "{{ login_password | default('password') }}"
 
   tasks:
     - name: Update apt cache
