@@ -9,15 +9,61 @@ servers:
   - url: http://localhost:8080
     description: Local development server
 security:
-  - basicAuth: []
+  - bearerAuth: []
 paths:
+  /login:
+    post:
+      summary: Login to get JWT token
+      description: Authenticates user credentials and returns a JWT token
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request body
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Invalid request body
+        '401':
+          description: Invalid credentials
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Invalid credentials
+        '405':
+          description: Method not allowed
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Method not allowed
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Internal server error
   /analyze:
     post:
       summary: Analyze a sentence
       description: Counts the number of words, vowels, and consonants in the provided sentence
       operationId: analyzeSentence
       security:
-        - basicAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -60,7 +106,35 @@ paths:
                 type: string
                 example: Internal server error
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Enter your JWT token in the format: Bearer {token}"
   schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          description: Username for authentication
+          example: "admin"
+        password:
+          type: string
+          description: Password for authentication
+          example: "password"
+          format: password
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT token for authentication
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
     SentenceAnalysisRequest:
       type: object
       required:
