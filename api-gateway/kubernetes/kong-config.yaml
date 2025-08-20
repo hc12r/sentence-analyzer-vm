@@ -8,6 +8,18 @@ data:
     _format_version: "2.1"
     _transform: true
 
+    plugins:
+      - name: oidc
+        config:
+          client_id: ${OIDC_CLIENT_ID}
+          client_secret: ${OIDC_CLIENT_SECRET}
+          discovery: ${OIDC_DISCOVERY_URL}
+          bearer_only: "yes"
+          realm: "sentence-analyzer"
+          ssl_verify: "no"
+          token_endpoint_auth_method: client_secret_post
+          introspection_endpoint: ${OIDC_INTROSPECTION_URL}
+
     services:
       - name: sentence-analyzer
         url: http://sentence-analyzer-service.default.svc.cluster.local:8080
