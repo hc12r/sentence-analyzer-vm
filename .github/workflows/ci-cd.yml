@@ -201,7 +201,7 @@ jobs:
 
   deploy-kong:
     name: Deploy Kong API Gateway
-    needs: ansible
+    needs: [ansible, terraform]
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main')
     steps:
@@ -229,6 +229,11 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           echo "Using IP: $EC2_IP"
+          # Check if EC2_IP is empty
+          if [ -z "$EC2_IP" ]; then
+            echo "Error: EC2_IP is empty. Cannot proceed with deployment."
+            exit 1
+          fi
           ssh-keyscan -t rsa $EC2_IP >> ~/.ssh/known_hosts
 
       - name: Deploy Kong API Gateway
@@ -241,6 +246,12 @@ jobs:
           # OIDC_INTROSPECTION_URL is optional for Auth0 and other providers that use JWT validation
           OIDC_INTROSPECTION_URL: ${{ secrets.OIDC_INTROSPECTION_URL || '' }}
         run: |
+          # Check if EC2_IP is empty
+          if [ -z "$EC2_IP" ]; then
+            echo "Error: EC2_IP is empty. Cannot proceed with deployment."
+            exit 1
+          fi
+          
           echo "[k3s_server]" > ansible/inventory
           echo "$EC2_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa" >> ansible/inventory
           
@@ -274,6 +285,13 @@ jobs:
         env:
           EC2_IP: ${{ needs.terraform.outputs.instance_public_ip }}
         run: |
+          # Check if EC2_IP is empty
+          if [ -z "$EC2_IP" ]; then
+            echo "Warning: EC2_IP is empty. Cannot provide access URLs."
+            echo "Kong API Gateway deployment status unknown."
+            exit 0
+          fi
+          
           echo "Kong API Gateway deployed successfully!"
           echo "You can access Kong Admin API at: http://$EC2_IP:8001"
           echo "Your API is now protected by Kong with OpenID Connect at: http://$EC2_IP:30080/analyze"
